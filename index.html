@@ -444,6 +444,18 @@
           <button class="mood-btn" data-mood="2" data-emoji="🥺">🥺</button>
           <button class="mood-btn" data-mood="1" data-emoji="😿">😿</button>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;justify-content:center;" id="emotion-tags">
+          <span class="tag" data-tag="焦虑">😰 焦虑</span>
+          <span class="tag" data-tag="疲惫">😮‍💨 疲惫</span>
+          <span class="tag" data-tag="兴奋">🤩 兴奋</span>
+          <span class="tag" data-tag="平静">😌 平静</span>
+          <span class="tag" data-tag="沮丧">😞 沮丧</span>
+          <span class="tag" data-tag="感激">🥹 感激</span>
+          <span class="tag" data-tag="愤怒">😤 愤怒</span>
+          <span class="tag" data-tag="迷茫">😶‍🌫️ 迷茫</span>
+          <span class="tag" data-tag="充实">💪 充实</span>
+          <span class="tag" data-tag="无聊">🥱 无聊</span>
+        </div>
       </div>
 
       <div class="card" id="overview-mood-chart-card">
@@ -816,13 +828,29 @@ $('btn-add-diary').addEventListener('click',showAddDiary);
 // ═══════════════════════════
 // QUICK MOOD
 // ═══════════════════════════
+let selMoodTags=[];
+// emotion tag click handling
+document.querySelectorAll('#emotion-tags .tag').forEach(t=>{
+  t.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    t.classList.toggle('active');
+    const tag=t.dataset.tag;
+    selMoodTags.includes(tag)?selMoodTags=selMoodTags.filter(x=>x!==tag):selMoodTags.push(tag);
+  });
+});
 document.querySelectorAll('#quick-mood-card .mood-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const val=parseInt(btn.dataset.mood);
+    const tags=[...selMoodTags];
     D.moods=D.moods.filter(m=>m.date!==today());
-      D.moods.push({date:today(),value:val,created:now()});
-    saveAll(D); renderOverview();
+    D.moods.push({date:today(),value:val,tags:tags,created:now()});
+    saveAll(D);
+    // 直接更新 KPI 卡片
+    $('ov-mood').textContent=btn.dataset.emoji;
+    renderOverview();
     document.querySelectorAll('#quick-mood-card .mood-btn').forEach(b=>b.classList.remove('selected'));
+    document.querySelectorAll('#emotion-tags .tag').forEach(b=>b.classList.remove('active'));
+    selMoodTags=[];
     btn.classList.add('selected');
     sparkle(btn);
     toast(`${btn.dataset.emoji} 心情已记录`);
@@ -990,7 +1018,13 @@ function renderAll(){renderOverview();renderDiaryTab();renderMoodTab();renderGoa
 // ═══════════════════════════
 applyTheme();
 const tm=D.moods.filter(m=>m.date===today()).pop();
-if(tm){document.querySelectorAll('#quick-mood-card .mood-btn').forEach(b=>{if(parseInt(b.dataset.mood)===tm.value)b.classList.add('selected');});}
+if(tm){
+  document.querySelectorAll('#quick-mood-card .mood-btn').forEach(b=>{if(parseInt(b.dataset.mood)===tm.value)b.classList.add('selected');});
+  if(tm.tags&&tm.tags.length){
+    selMoodTags=[...tm.tags];
+    document.querySelectorAll('#emotion-tags .tag').forEach(b=>{if(tm.tags.includes(b.dataset.tag))b.classList.add('active');});
+  }
+}
 renderOverview();
 console.log('🐰 芦苇海 · 我的记录 ✨');
 console.log('  🐰 日记 | 🌈 心情 | 🌟 目标 | 🦊 兴趣');
