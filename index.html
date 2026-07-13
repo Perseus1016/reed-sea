@@ -444,7 +444,7 @@
           <button class="mood-btn" data-mood="2" data-emoji="🥺">🥺</button>
           <button class="mood-btn" data-mood="1" data-emoji="😿">😿</button>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;justify-content:center;" id="emotion-tags">
+        <div id="emotion-tags-row" style="display:none;flex-wrap:wrap;gap:5px;margin-top:10px;justify-content:center;animation:fadeSlide 0.25s ease;">
           <span class="tag" data-tag="焦虑">😰 焦虑</span>
           <span class="tag" data-tag="疲惫">😮‍💨 疲惫</span>
           <span class="tag" data-tag="兴奋">🤩 兴奋</span>
@@ -828,32 +828,42 @@ $('btn-add-diary').addEventListener('click',showAddDiary);
 // ═══════════════════════════
 // QUICK MOOD
 // ═══════════════════════════
-let selMoodTags=[];
-// emotion tag click handling
-document.querySelectorAll('#emotion-tags .tag').forEach(t=>{
-  t.addEventListener('click',(e)=>{
-    e.stopPropagation();
-    t.classList.toggle('active');
-    const tag=t.dataset.tag;
-    selMoodTags.includes(tag)?selMoodTags=selMoodTags.filter(x=>x!==tag):selMoodTags.push(tag);
-  });
-});
+let _moodTagTimer=null, _lastMoodSaved=null;
+// After clicking a mood, tags appear for a few seconds
 document.querySelectorAll('#quick-mood-card .mood-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const val=parseInt(btn.dataset.mood);
-    const tags=[...selMoodTags];
+    const entry={date:today(),value:val,tags:[],created:now()};
     D.moods=D.moods.filter(m=>m.date!==today());
-    D.moods.push({date:today(),value:val,tags:tags,created:now()});
+    D.moods.push(entry); _lastMoodSaved=entry;
     saveAll(D);
-    // 直接更新 KPI 卡片
     $('ov-mood').textContent=btn.dataset.emoji;
     renderOverview();
     document.querySelectorAll('#quick-mood-card .mood-btn').forEach(b=>b.classList.remove('selected'));
-    document.querySelectorAll('#emotion-tags .tag').forEach(b=>b.classList.remove('active'));
-    selMoodTags=[];
     btn.classList.add('selected');
     sparkle(btn);
-    toast(`${btn.dataset.emoji} 心情已记录`);
+    // Show emotion tags for optional refinement
+    const row=$('emotion-tags-row');
+    clearTimeout(_moodTagTimer);
+    row.style.display='flex';
+    row.querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
+    _moodTagTimer=setTimeout(()=>{row.style.display='none';},5000);
+    toast(`${btn.dataset.emoji} 心情已记录 · 可补选感受标签`);
+  });
+});
+// Emotion tag clicks — save into the last recorded mood
+document.querySelectorAll('#emotion-tags-row .tag').forEach(t=>{
+  t.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    t.classList.toggle('active');
+    if(!_lastMoodSaved) return;
+    const tag=t.dataset.tag;
+    const idx=_lastMoodSaved.tags.indexOf(tag);
+    idx>=0?_lastMoodSaved.tags.splice(idx,1):_lastMoodSaved.tags.push(tag);
+    // Persist to localStorage
+    const mi=D.moods.findIndex(m=>m.created===_lastMoodSaved.created);
+    if(mi>=0) D.moods[mi].tags=[..._lastMoodSaved.tags];
+    saveAll(D);
   });
 });
 
@@ -1020,10 +1030,7 @@ applyTheme();
 const tm=D.moods.filter(m=>m.date===today()).pop();
 if(tm){
   document.querySelectorAll('#quick-mood-card .mood-btn').forEach(b=>{if(parseInt(b.dataset.mood)===tm.value)b.classList.add('selected');});
-  if(tm.tags&&tm.tags.length){
-    selMoodTags=[...tm.tags];
-    document.querySelectorAll('#emotion-tags .tag').forEach(b=>{if(tm.tags.includes(b.dataset.tag))b.classList.add('active');});
-  }
+  _lastMoodSaved=tm;
 }
 renderOverview();
 console.log('🐰 芦苇海 · 我的记录 ✨');
