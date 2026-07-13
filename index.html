@@ -547,7 +547,7 @@ let D = loadData();
 // HELPERS
 // ═══════════════════════════
 const $=id=>document.getElementById(id);
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;};
 const now=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
@@ -675,7 +675,7 @@ function renderOverview() {
   const tm = D.moods.filter(m=>m.date===today()).pop();
   $('ov-mood').textContent = tm ? MOOD_EMOJI[tm.value] : '--';
   $('ov-goals').textContent = D.goals.filter(g=>g.progress<100).length;
-  const recent = D.interests.filter(i=>i.date>=new Date(Date.now()-14*86400000).toISOString().slice(0,10));
+  const recent = D.interests.filter(i=>{const d=new Date();d.setDate(d.getDate()-14);const p=n=>String(n).padStart(2,'0');const cut=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;return i.date>=cut;});
   $('ov-interests').textContent = new Set(recent.map(i=>i.name)).size;
   renderOverviewMoodChart();
   // Goals
@@ -698,7 +698,7 @@ function renderOverview() {
 function renderOverviewMoodChart() {
   const c=$('overview-mood-chart'); const ctx=c.getContext('2d');
   if(c._chart) c._chart.destroy();
-  const days=[]; for(let i=6;i>=0;i--) days.push(new Date(Date.now()-i*86400000).toISOString().slice(0,10));
+  const days=[]; for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const p=n=>String(n).padStart(2,'0');days.push(`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`);}
   const data=days.map(d=>{const m=D.moods.filter(x=>x.date===d).pop();return m?m.value:null;});
   const tc=D.dark?'#9a8b78':'#8b7b68';
   const gc=D.dark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.04)';
@@ -712,7 +712,7 @@ let diaryFilterTag=null;
 
 function renderDiaryTab() {
   const list=$('diary-list');
-  let entries=[...D.diary].sort((a,b)=>b.date.localeCompare(a.date));
+  let entries=[...D.diary].sort((a,b)=>b.date.localeCompare(a.date)||b.created.localeCompare(a.created));
   if(diaryFilterTag) entries=entries.filter(e=>e.tags&&e.tags.includes(diaryFilterTag));
   if(!entries.length) {
     list.innerHTML='<div class="empty"><span class="big">🐰</span>还没有日记<br>点击上方按钮开始记录吧 ✨</div>';
@@ -853,7 +853,7 @@ function renderMoodPieChart(){
 
 function renderMoodHistory(){
   const div=$('mood-history');
-  const recent=[...D.moods].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20);
+  const recent=[...D.moods].sort((a,b)=>b.date.localeCompare(a.date)||b.created.localeCompare(a.created)).slice(0,20);
   if(!recent.length){div.innerHTML='<div class="empty"><span class="big">🌈</span>还没有心情记录<br>去总览页点一下心情吧~</div>';return;}
   div.innerHTML='<div class="card"><div class="card-title"><span class="icon">📋✨</span> 心情记录</div>'+recent.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--surface);"><span style="font-size:26px;">${MOOD_EMOJI[m.value]}</span><span style="flex:1;font-size:12px;">${timeFmt(m.created)}</span><span style="font-size:11px;color:var(--text2);">${MOOD_LABEL[m.value]}</span></div>`).join('')+'</div>';
 }
@@ -915,7 +915,7 @@ function renderInterestCloud(container){
 function renderInterestsTab(){
   renderInterestCloud($('interests-cloud'));
   const log=$('interests-log');
-  const recent=[...D.interests].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20);
+  const recent=[...D.interests].sort((a,b)=>b.date.localeCompare(a.date)||b.created.localeCompare(a.created)).slice(0,20);
   if(!recent.length){log.innerHTML='<div class="empty">还没有记录~</div>';return;}
   log.innerHTML=recent.map(i=>{
     const np=i.note?i.note.slice(0,30)+(i.note.length>30?'...':''):'';
