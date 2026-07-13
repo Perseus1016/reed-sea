@@ -498,10 +498,6 @@
         <div class="chart-wrap"><canvas id="mood-pie-chart" style="max-height:200px;"></canvas></div>
       </div>
     </div>
-    <div class="card" style="margin-top:0;">
-      <div class="card-title"><span class="icon">🕐</span> 今日时刻线</div>
-      <div id="today-timeline"></div>
-    </div>
     <div id="mood-history"></div>
   </div>
 
@@ -715,7 +711,8 @@ function renderOverviewMoodChart() {
   const c=$('overview-mood-chart'); const ctx=c.getContext('2d');
   if(c._chart) c._chart.destroy();
   const days=[]; for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const p=n=>String(n).padStart(2,'0');days.push(`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`);}
-  const data=days.map(d=>{const m=D.moods.filter(x=>x.date===d).pop();return m?m.value:null;});
+  const dm=_dailyMoods(); const dmMap={}; dm.forEach(d=>dmMap[d.date]=d.avg);
+  const data=days.map(d=>dmMap[d]??null);
   const tc=D.dark?'#9a8b78':'#8b7b68';
   const gc=D.dark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.04)';
   c._chart=new Chart(ctx,{type:'line',data:{labels:days.map(d=>d.slice(5)),datasets:[{data,borderColor:'#e8a87c',backgroundColor:'rgba(240,165,181,0.12)',fill:true,tension:0.4,pointRadius:6,pointBackgroundColor:'#f0a5b5',spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0.5,max:5.5,ticks:{stepSize:1,color:tc,callback:v=>MOOD_EMOJI[v]||''},grid:{color:gc}},x:{ticks:{color:tc},grid:{color:gc}}}}});
@@ -882,14 +879,19 @@ document.querySelectorAll('#emotion-tags-row .tag').forEach(t=>{
 // ═══════════════════════════
 // MOOD TAB
 // ═══════════════════════════
-function renderMoodTab(){renderMoodLineChart();renderMoodPieChart();renderTodayTimeline();renderMoodHistory();}
+function renderMoodTab(){renderMoodLineChart();renderMoodPieChart();renderMoodHistory();}
 
+function _dailyMoods(){
+  const map={}; D.moods.forEach(m=>{if(!map[m.date])map[m.date]=[];map[m.date].push(m.value);});
+  const keys=Object.keys(map).sort();
+  return keys.map(d=>({date:d,avg:Math.round(map[d].reduce((a,b)=>a+b,0)/map[d].length),count:map[d].length}));
+}
 function renderMoodLineChart(){
   const c=$('mood-line-chart'); const ctx=c.getContext('2d'); if(c._chart)c._chart.destroy();
-  const moods=[...D.moods].sort((a,b)=>a.date.localeCompare(b.date));
-  if(!moods.length)return;
+  const daily=_dailyMoods();
+  if(!daily.length)return;
   const tc=D.dark?'#9a8b78':'#8b7b68', gc=D.dark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.04)';
-  c._chart=new Chart(ctx,{type:'line',data:{labels:moods.map(m=>m.date.slice(5)),datasets:[{data:moods.map(m=>m.value),borderColor:'#e8a87c',backgroundColor:'rgba(240,165,181,0.12)',fill:true,tension:0.35,pointRadius:5,pointBackgroundColor:'#f0a5b5'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0.5,max:5.5,ticks:{stepSize:1,color:tc,callback:v=>MOOD_EMOJI[v]||''},grid:{color:gc}},x:{ticks:{color:tc,maxTicksLimit:14},grid:{color:gc}}}}});
+  c._chart=new Chart(ctx,{type:'line',data:{labels:daily.map(d=>d.date.slice(5)),datasets:[{data:daily.map(d=>d.avg),borderColor:'#e8a87c',backgroundColor:'rgba(240,165,181,0.12)',fill:true,tension:0.35,pointRadius:5,pointBackgroundColor:'#f0a5b5'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`均值 ${ctx.raw} · ${daily[ctx.dataIndex].count}次记录`}}},scales:{y:{min:0.5,max:5.5,ticks:{stepSize:1,color:tc,callback:v=>MOOD_EMOJI[v]||''},grid:{color:gc}},x:{ticks:{color:tc,maxTicksLimit:14},grid:{color:gc}}}}});
 }
 
 function renderMoodPieChart(){
@@ -902,19 +904,6 @@ function renderMoodPieChart(){
 }
 
 function _fmtTime(iso){if(!iso)return'';const d=new Date(iso);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
-function _todayEntries(){return D.moods.filter(m=>m.date===today()).sort((a,b)=>a.created.localeCompare(b.created));}
-function renderTodayTimeline(){
-  const div=$('today-timeline');
-  const entries=_todayEntries();
-  if(!entries.length){div.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">今天还没有心情记录 ☁️</div>';return;}
-  div.innerHTML=entries.map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;${i<entries.length-1?'border-bottom:1px solid var(--surface);':''}">
-      <span style="font-size:22px;">${MOOD_EMOJI[m.value]}</span>
-      <span style="flex:1;font-size:12px;color:var(--text2);">${_fmtTime(m.created)}</span>
-      ${m.tags&&m.tags.length?`<span style="font-size:10px;color:var(--accent);display:flex;gap:3px;flex-wrap:wrap;">${m.tags.map(t=>`<span style="background:var(--surface);padding:2px 7px;border-radius:10px;">${t}</span>`).join('')}</span>`:''}
-    </div>
-  `).join('');
-}
 function renderMoodHistory(){
   const div=$('mood-history');
   const recent=[...D.moods].sort((a,b)=>b.created.localeCompare(a.created)).slice(0,30);
