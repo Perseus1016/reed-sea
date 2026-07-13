@@ -41,6 +41,12 @@
     --shadow-hover: 0 6px 24px rgba(0,0,0,0.35);
   }
 
+  /* 暗色皮肤 — 完整配色 */
+  body.skin-purple { --bg:#1b181e;--card:#252128;--surface:#302b35;--text:#c8bfd4;--text2:#8b7da0;--text3:#5f5470;--accent:#a078c8;--accent2:#c0a0e0; }
+  body.skin-blue   { --bg:#141a20;--card:#1c232a;--surface:#242d38;--text:#b8c8d8;--text2:#7090b0;--text3:#486080;--accent:#6098d0;--accent2:#80b8e8; }
+  body.skin-green  { --bg:#151c16;--card:#1d251e;--surface:#253028;--text:#b8ccba;--text2:#6b906e;--text3:#405e43;--accent:#5b9e60;--accent2:#78c080; }
+  body.skin-ember  { --bg:#1d1714;--card:#261f1a;--surface:#342a22;--text:#d4c0b8;--text2:#a08070;--text3:#705848;--accent:#e08860;--accent2:#f0a880; }
+
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
     background: var(--bg);
@@ -357,6 +363,18 @@
     100% { opacity:0; transform: translate(var(--sx), calc(var(--sy) - 20px)) scale(0.5); }
   }
 
+  /* ── Skin picker ── */
+  .skin-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .skin-card {
+    padding:16px 12px; border-radius:14px; cursor:pointer;
+    text-align:center; transition:all 0.2s; border:2px solid transparent;
+    background:var(--surface);
+  }
+  .skin-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); border-color:var(--accent); }
+  .skin-card.active { border-color:var(--accent); background:var(--card); box-shadow:0 0 0 2px var(--accent-glow, rgba(232,168,124,0.15)); }
+  .skin-card .skin-icon { font-size:30px; display:block; margin-bottom:6px; }
+  .skin-card .skin-name { font-size:13px; font-weight:600; }
+
   /* ── Responsive: mobile ── */
   @media (max-width: 768px) {
     header { padding:10px 14px; }
@@ -392,6 +410,7 @@
   <div class="header-actions">
     <button class="hbtn" id="btn-export" title="💾 导出备份">📦</button>
     <button class="hbtn" id="btn-import" title="📥 导入备份">📥</button>
+    <button class="hbtn" id="btn-skin" title="🎨 皮肤">🎨</button>
     <button class="hbtn" id="btn-theme" title="🌓 深浅模式">🌙</button>
   </div>
 </header>
@@ -499,6 +518,9 @@
   <div class="modal" id="modal-content"></div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="modal-overlay" id="skin-overlay">
+  <div class="modal" id="skin-modal"></div>
+</div>
 <input type="file" id="import-file" accept=".json" style="display:none">
 
 <script>
@@ -601,6 +623,48 @@ $('btn-theme').addEventListener('click',()=>{
   D.dark=!D.dark; applyTheme(); saveAll(D);
   if(document.querySelector('#tab-overview.active')) renderOverview();
   if(document.querySelector('#tab-mood.active')) renderMoodTab();
+});
+
+// ═══ SKIN SYSTEM ═══
+var SKINS=[
+  {id:'gold',  icon:'🌙',name:'暗夜金'},
+  {id:'purple',icon:'💜',name:'暗紫'},
+  {id:'blue',  icon:'💙',name:'深蓝'},
+  {id:'green', icon:'💚',name:'暗绿'},
+  {id:'ember', icon:'🧡',name:'余烬'},
+];
+
+function setSkin(id){
+  D.skin=id;
+  document.body.className=document.body.className.replace(/skin-\w+/g,'');
+  if(D.dark && id!=='gold') document.body.classList.add('skin-'+id);
+  saveAll(D);
+  refreshSkinUI();
+}
+
+function refreshSkinUI(){
+  var so=document.getElementById('skin-overlay');
+  if(!so||!so.classList.contains('show')) return;
+  var html='<h3>🎨 暗色皮肤</h3><p style="font-size:11px;color:var(--text3);margin-bottom:12px;">点击卡片实时切换</p><div class="skin-grid">';
+  for(var i=0;i<SKINS.length;i++){
+    var s=SKINS[i];
+    var active=(D.skin||'gold')===s.id;
+    html+='<div class="skin-card'+(active?' active':'')+'" onclick="setSkin(\''+s.id+'\')">';
+    html+='<span class="skin-icon">'+s.icon+'</span>';
+    html+='<span class="skin-name">'+s.name+'</span></div>';
+  }
+  html+='</div><button class="btn fill" onclick="document.getElementById(\'skin-overlay\').classList.remove(\'show\')" style="width:100%;margin-top:12px;">关闭</button>';
+  document.getElementById('skin-modal').innerHTML=html;
+}
+
+$('btn-skin').addEventListener('click',function(){
+  if(!D.dark){D.dark=true;applyTheme();saveAll(D);}
+  document.getElementById('skin-overlay').classList.add('show');
+  refreshSkinUI();
+});
+
+document.getElementById('skin-overlay').addEventListener('click',function(e){
+  if(e.target===this) this.classList.remove('show');
 });
 
 // ═══════════════════════════
