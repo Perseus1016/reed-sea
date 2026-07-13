@@ -658,7 +658,8 @@ function renderDiaryTab() {
         <div class="diary-meta">
           <span>📅 ${timeFmt(e.created)}</span>
           ${e.mood?`<span>${MOOD_EMOJI[e.mood]} ${MOOD_LABEL[e.mood]}</span>`:''}
-          <span style="margin-left:auto;cursor:pointer;opacity:0.4;font-size:13px;" onclick="deleteDiary('${e.id}')" title="删除">🗑️</span>
+          <span style="margin-left:auto;cursor:pointer;opacity:0.35;font-size:13px;" onclick="editDiary('${e.id}')" title="编辑">✏️</span>
+            <span style="cursor:pointer;opacity:0.35;font-size:13px;" onclick="deleteDiary('${e.id}')" title="删除">🗑️</span>
         </div>
         ${e.title?`<div class="diary-title">${esc(e.title)}</div>`:''}
         <div class="diary-body">${esc(e.content)}</div>
@@ -667,6 +668,30 @@ function renderDiaryTab() {
     `).join('');
   }
 }
+
+function editDiary(id){
+  const e=D.diary.find(x=>x.id===id);if(!e)return;
+  const at=new Set();D.diary.forEach(d=>(d.tags||[]).forEach(t=>at.add(t)));D.interests.forEach(i=>at.add(i.name));
+  showModal(`<h3>✏️ 编辑日记</h3><input id="dt" value="${esc(e.title||'')}" placeholder="标题"><textarea id="dc" placeholder="今天发生了什么？🐾">${esc(e.content||'')}</textarea><div style="margin-bottom:8px;"><span style="font-size:11px;color:var(--text2);">心情：</span><div class="mood-row" style="justify-content:flex-start;gap:4px;" id="dms">${[5,4,3,2,1].map(v=>`<button class="mood-btn" data-mood="${v}" style="font-size:28px;width:44px;height:44px;">${MOOD_EMOJI[v]}</button>`).join('')}</div></div><div style="margin-bottom:10px;"><span style="font-size:11px;color:var(--text2);">标签：</span><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;" id="dts">${[...at].map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div><input id="dnt" placeholder="+ 新标签" style="margin-top:6px;padding:7px 10px;font-size:12px;"></div><div style="display:flex;gap:8px;"><button class="btn" onclick="hideModal()" style="flex:1;">取消</button><button class="btn fill" onclick="saveEditDiary('${id}')" style="flex:1;">💾 保存</button></div>`);
+  let m=e.mood||null,t=[...(e.tags||[])];
+  setTimeout(()=>{
+    if(e.mood){const b=document.querySelector('#dms .mood-btn[data-mood="'+e.mood+'"]');if(b)b.classList.add('selected');}
+    document.querySelectorAll('#dts .tag').forEach(b=>{if(t.includes(b.dataset.tag))b.classList.add('active');});
+  },80);
+  document.querySelectorAll('#dms .mood-btn').forEach(b=>{b.onclick=()=>{document.querySelectorAll('#dms .mood-btn').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');m=parseInt(b.dataset.mood);}});
+  document.querySelectorAll('#dts .tag').forEach(b=>{b.onclick=()=>{const tg=b.dataset.tag;t.includes(tg)?t=t.filter(x=>x!==tg):t.push(tg);b.classList.toggle('active',t.includes(tg));}});
+  window._sed=(eid)=>{
+    const ti=document.getElementById('dt')?.value?.trim()||'';
+    const co=document.getElementById('dc')?.value?.trim()||'';
+    if(!co){toast('写点什么');return;}
+    const nt=document.getElementById('dnt')?.value?.trim();
+    if(nt&&!t.includes(nt))t.push(nt);
+    const i=D.diary.findIndex(x=>x.id===eid);
+    if(i>=0){D.diary[i].title=ti;D.diary[i].content=co;D.diary[i].mood=m;D.diary[i].tags=t;D.diary[i].edited=true;}
+    saveAll(D);hideModal();renderDiaryTab();renderOverview();toast('已更新');
+  };
+}
+window.saveEditDiary=id=>window._sed?.(id);
 
 function deleteDiary(id) {
   if(!confirm('确定删除这篇日记吗？🐰')) return;
@@ -828,8 +853,31 @@ function renderInterestsTab(){
   const log=$('interests-log');
   const recent=[...D.interests].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20);
   if(!recent.length){log.innerHTML='<div class="empty">还没有记录~</div>';return;}
-  log.innerHTML=recent.map(i=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--surface);"><span style="font-size:20px;">${i.icon||'🦊'}</span><span style="flex:1;font-size:12px;font-weight:600;">${esc(i.name)}</span><span style="font-size:10px;color:var(--text2);">${timeFmt(i.created)}</span><span style="font-size:10px;">${'⭐'.repeat(i.level||1)}</span><span style="cursor:pointer;opacity:0.25;font-size:12px;" onclick="deleteInterest('${i.id}')">✕</span></div>`).join('');
+  log.innerHTML=recent.map(i=>{
+    const np=i.note?i.note.slice(0,30)+(i.note.length>30?'...':''):'';
+    return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--surface);cursor:pointer;" onclick="viewInterest('${i.id}')"><span style="font-size:20px;">${i.icon||'🦊'}</span><span style="flex:1;min-width:0;"><span style="font-size:12px;font-weight:600;">${esc(i.name)}</span>${np?`<span style="font-size:10px;color:var(--text2);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(np)}</span>`:''}</span><span style="font-size:10px;color:var(--text2);white-space:nowrap;">${timeFmt(i.created)}</span><span style="font-size:10px;white-space:nowrap;">${'⭐'.repeat(i.level||1)}</span><span style="cursor:pointer;opacity:0.25;font-size:12px;" onclick="event.stopPropagation();deleteInterest('${i.id}')">✕</span></div>`
+  }).join('');
 }
+function viewInterest(id){
+  const x=D.interests.find(i=>i.id===id);if(!x)return;
+  showModal(`<h3>${x.icon||'🦊'} ${esc(x.name)}</h3><div style="font-size:12px;color:var(--text2);margin-bottom:10px;">${timeFmt(x.created)} . ${'⭐'.repeat(x.level||1)}</div>${x.note?`<div style="background:var(--surface);padding:12px;border-radius:12px;font-size:13px;line-height:1.7;white-space:pre-wrap;">${esc(x.note)}</div>`:'<div style="color:var(--text3);font-size:12px;text-align:center;padding:20px;">没有备注</div>'}<div style="display:flex;gap:8px;margin-top:12px;"><button class="btn" onclick="hideModal()" style="flex:1;">关闭</button><button class="btn" onclick="editInterest('${id}')" style="flex:1;">✏️ 编辑</button><button class="btn" onclick="if(confirm('删除？')){deleteInterest('${id}');hideModal();}" style="flex:1;color:var(--pink);border-color:var(--pink);">🗑️</button></div>`);
+}
+function editInterest(id){
+  const x=D.interests.find(i=>i.id===id);if(!x)return;
+  showModal(`<h3>✏️ 编辑兴趣</h3><input id="ein" value="${esc(x.name)}" placeholder="名称"><textarea id="eino" placeholder="备注">${esc(x.note||'')}</textarea><div style="margin-bottom:8px;"><span style="font-size:11px;color:var(--text2);">热度：</span><div style="display:flex;gap:4px;" id="eil">${[1,2,3,4,5].map(l=>`<span class="tag" data-level="${l}">${'⭐'.repeat(l)}</span>`).join('')}</div></div><div style="display:flex;gap:8px;"><button class="btn" onclick="viewInterest('${id}')" style="flex:1;">取消</button><button class="btn fill" onclick="saveEditInterest('${id}')" style="flex:1;">💾 保存</button></div>`);
+  let l=x.level||3;
+  setTimeout(()=>{const b=document.querySelector('#eil .tag[data-level="'+l+'"]');if(b)b.classList.add('active');},60);
+  document.querySelectorAll('#eil .tag').forEach(b=>{b.onclick=()=>{document.querySelectorAll('#eil .tag').forEach(y=>y.classList.remove('active'));b.classList.add('active');l=parseInt(b.dataset.level);}});
+  window._sei=(eid)=>{
+    const nm=document.getElementById('ein')?.value?.trim();if(!nm){toast('输入名称');return;}
+    const no=document.getElementById('eino')?.value?.trim()||'';
+    const i=D.interests.findIndex(x=>x.id===eid);
+    if(i>=0){D.interests[i].name=nm;D.interests[i].note=no;D.interests[i].level=l;D.interests[i].icon=['','🦊','📖','🎯','🔥','💡'][l]||'🦊';}
+    saveAll(D);hideModal();renderInterestsTab();renderOverview();toast('已更新');
+  };
+}
+window.saveEditInterest=id=>window._sei?.(id);
+
 function deleteInterest(id){D.interests=D.interests.filter(i=>i.id!==id);saveAll(D);renderInterestsTab();renderOverview();}
 
 function addInterestNote(name){
