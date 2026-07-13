@@ -737,7 +737,8 @@ function renderDiaryTab() {
       <div class="card diary-entry">
         <div class="diary-meta">
           <span>📅 ${timeFmt(e.created)}</span>
-          ${e.mood?`<span>${MOOD_EMOJI[e.mood]} ${MOOD_LABEL[e.mood]}</span>`:''}
+          ${e.mood?`<span>${MOOD_EMOJI[e.mood]}</span>`:''}
+          ${e.emotionTags&&e.emotionTags.length?`<span style="font-size:10px;color:var(--accent);">${e.emotionTags.map(t=>`<span style="background:var(--surface);padding:1px 6px;border-radius:9px;margin:0 1px;">${t}</span>`).join('')}</span>`:''}
           <span style="margin-left:auto;cursor:pointer;opacity:0.35;font-size:13px;" onclick="editDiary('${e.id}')" title="编辑">✏️</span>
             <span style="cursor:pointer;opacity:0.35;font-size:13px;" onclick="deleteDiary('${e.id}')" title="删除">🗑️</span>
         </div>
@@ -752,13 +753,16 @@ function renderDiaryTab() {
 function editDiary(id){
   const e=D.diary.find(x=>x.id===id);if(!e)return;
   const at=new Set();D.diary.forEach(d=>(d.tags||[]).forEach(t=>at.add(t)));D.interests.forEach(i=>at.add(i.name));
-  showModal(`<h3>✏️ 编辑日记</h3><input id="dt" value="${esc(e.title||'')}" placeholder="标题"><textarea id="dc" placeholder="今天发生了什么？🐾">${esc(e.content||'')}</textarea><div style="margin-bottom:8px;"><span style="font-size:11px;color:var(--text2);">心情：</span><div class="mood-row" style="justify-content:flex-start;gap:4px;" id="dms">${[5,4,3,2,1].map(v=>`<button class="mood-btn" data-mood="${v}" style="font-size:28px;width:44px;height:44px;">${MOOD_EMOJI[v]}</button>`).join('')}</div></div><div style="margin-bottom:10px;"><span style="font-size:11px;color:var(--text2);">标签：</span><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;" id="dts">${[...at].map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div><input id="dnt" placeholder="+ 新标签" style="margin-top:6px;padding:7px 10px;font-size:12px;"></div><div style="display:flex;gap:8px;"><button class="btn" onclick="hideModal()" style="flex:1;">取消</button><button class="btn fill" onclick="saveEditDiary('${id}')" style="flex:1;">💾 保存</button></div>`);
-  let m=e.mood||null,t=[...(e.tags||[])];
+  const EMOTION_TAGS=['😰 焦虑','😮‍💨 疲惫','🤩 兴奋','😌 平静','😞 沮丧','🥹 感激','😤 愤怒','😶‍🌫️ 迷茫','💪 充实','🥱 无聊'];
+  showModal(`<h3>✏️ 编辑日记</h3><input id="dt" value="${esc(e.title||'')}" placeholder="标题"><textarea id="dc" placeholder="今天发生了什么？🐾">${esc(e.content||'')}</textarea><div style="margin-bottom:8px;"><span style="font-size:11px;color:var(--text2);">心情：</span><div class="mood-row" style="justify-content:flex-start;gap:4px;" id="dms">${[5,4,3,2,1].map(v=>`<button class="mood-btn" data-mood="${v}" style="font-size:28px;width:44px;height:44px;">${MOOD_EMOJI[v]}</button>`).join('')}</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;" id="dets">${EMOTION_TAGS.map(t=>`<span class="tag" data-tag="${t.slice(3)}">${t}</span>`).join('')}</div></div><div style="margin-bottom:10px;"><span style="font-size:11px;color:var(--text2);">主题标签：</span><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;" id="dts">${[...at].map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div><input id="dnt" placeholder="+ 新标签" style="margin-top:6px;padding:7px 10px;font-size:12px;"></div><div style="display:flex;gap:8px;"><button class="btn" onclick="hideModal()" style="flex:1;">取消</button><button class="btn fill" onclick="saveEditDiary('${id}')" style="flex:1;">💾 保存</button></div>`);
+  let m=e.mood||null,t=[...(e.tags||[])],et=[...(e.emotionTags||[])];
   setTimeout(()=>{
     if(e.mood){const b=document.querySelector('#dms .mood-btn[data-mood="'+e.mood+'"]');if(b)b.classList.add('selected');}
+    document.querySelectorAll('#dets .tag').forEach(b=>{if(et.includes(b.dataset.tag))b.classList.add('active');});
     document.querySelectorAll('#dts .tag').forEach(b=>{if(t.includes(b.dataset.tag))b.classList.add('active');});
   },80);
   document.querySelectorAll('#dms .mood-btn').forEach(b=>{b.onclick=()=>{document.querySelectorAll('#dms .mood-btn').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');m=parseInt(b.dataset.mood);}});
+  document.querySelectorAll('#dets .tag').forEach(b=>{b.onclick=()=>{const tg=b.dataset.tag;et.includes(tg)?et=et.filter(x=>x!==tg):et.push(tg);b.classList.toggle('active',et.includes(tg));}});
   document.querySelectorAll('#dts .tag').forEach(b=>{b.onclick=()=>{const tg=b.dataset.tag;t.includes(tg)?t=t.filter(x=>x!==tg):t.push(tg);b.classList.toggle('active',t.includes(tg));}});
   window._sed=(eid)=>{
     const ti=document.getElementById('dt')?.value?.trim()||'';
@@ -767,7 +771,7 @@ function editDiary(id){
     const nt=document.getElementById('dnt')?.value?.trim();
     if(nt&&!t.includes(nt))t.push(nt);
     const i=D.diary.findIndex(x=>x.id===eid);
-    if(i>=0){D.diary[i].title=ti;D.diary[i].content=co;D.diary[i].mood=m;D.diary[i].tags=t;D.diary[i].edited=true;}
+    if(i>=0){D.diary[i].title=ti;D.diary[i].content=co;D.diary[i].mood=m;D.diary[i].emotionTags=[...et];D.diary[i].tags=t;D.diary[i].edited=true;}
     saveAll(D);hideModal();renderDiaryTab();renderOverview();toast('已更新');
   };
 }
@@ -793,6 +797,7 @@ $('btn-diary-filter').addEventListener('click',()=>{
 
 function showAddDiary() {
   const allTags=new Set(); D.diary.forEach(e=>(e.tags||[]).forEach(t=>allTags.add(t))); D.interests.forEach(i=>allTags.add(i.name));
+  const EMOTION_TAGS=['😰 焦虑','😮‍💨 疲惫','🤩 兴奋','😌 平静','😞 沮丧','🥹 感激','😤 愤怒','😶‍🌫️ 迷茫','💪 充实','🥱 无聊'];
   showModal(`
     <h3>🐰 写日记</h3>
     <input id="diary-title" placeholder="今天的小标题…">
@@ -802,9 +807,12 @@ function showAddDiary() {
       <div class="mood-row" style="justify-content:flex-start;gap:4px;" id="diary-mood-select">
         ${[5,4,3,2,1].map(v=>`<button class="mood-btn" data-mood="${v}" style="font-size:28px;width:44px;height:44px;">${MOOD_EMOJI[v]}</button>`).join('')}
       </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;" id="diary-emotion-tags">
+        ${EMOTION_TAGS.map(t=>`<span class="tag" data-tag="${t.slice(3)}">${t}</span>`).join('')}
+      </div>
     </div>
     <div style="margin-bottom:10px;">
-      <span style="font-size:11px;color:var(--text2);">标签：</span>
+      <span style="font-size:11px;color:var(--text2);">主题标签：</span>
       <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;" id="diary-tag-select">
         ${[...allTags].map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}
       </div>
@@ -812,8 +820,9 @@ function showAddDiary() {
     </div>
     <button class="btn fill" onclick="saveDiary()" style="width:100%;justify-content:center;">✨ 保存日记</button>
   `);
-  let selMood=null, selTags=[];
+  let selMood=null, selTags=[], selEmotionTags=[];
   document.querySelectorAll('#diary-mood-select .mood-btn').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#diary-mood-select .mood-btn').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');selMood=parseInt(b.dataset.mood);});});
+  document.querySelectorAll('#diary-emotion-tags .tag').forEach(t=>{t.addEventListener('click',()=>{const tag=t.dataset.tag;if(selEmotionTags.includes(tag))selEmotionTags=selEmotionTags.filter(x=>x!==tag);else selEmotionTags.push(tag);t.classList.toggle('active',selEmotionTags.includes(tag));});});
   document.querySelectorAll('#diary-tag-select .tag').forEach(t=>{t.addEventListener('click',()=>{const tag=t.dataset.tag;if(selTags.includes(tag))selTags=selTags.filter(x=>x!==tag);else selTags.push(tag);t.classList.toggle('active',selTags.includes(tag));});});
   window._saveDiary=()=>{
     const title=document.getElementById('diary-title')?.value?.trim()||'';
@@ -821,7 +830,7 @@ function showAddDiary() {
     if(!content){toast('写点什么吧 🐰');return;}
     const nt=document.getElementById('diary-new-tag')?.value?.trim();
     if(nt&&!selTags.includes(nt))selTags.push(nt);
-    D.diary.push({id:uid(),date:today(),title,content,mood:selMood,tags:selTags,created:now()});
+    D.diary.push({id:uid(),date:today(),title,content,mood:selMood,emotionTags:[...selEmotionTags],tags:selTags,created:now()});
     saveAll(D); hideModal(); renderDiaryTab(); renderOverview();
     toast('日记已保存 ✨'); sparkle($('btn-add-diary'));
   };
