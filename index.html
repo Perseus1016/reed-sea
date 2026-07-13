@@ -498,6 +498,10 @@
         <div class="chart-wrap"><canvas id="mood-pie-chart" style="max-height:200px;"></canvas></div>
       </div>
     </div>
+    <div class="card" style="margin-top:0;">
+      <div class="card-title"><span class="icon">🕐</span> 今日时刻线</div>
+      <div id="today-timeline"></div>
+    </div>
     <div id="mood-history"></div>
   </div>
 
@@ -834,7 +838,6 @@ document.querySelectorAll('#quick-mood-card .mood-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const val=parseInt(btn.dataset.mood);
     const entry={date:today(),value:val,tags:[],created:now()};
-    D.moods=D.moods.filter(m=>m.date!==today());
     D.moods.push(entry); _lastMoodSaved=entry;
     saveAll(D);
     $('ov-mood').textContent=btn.dataset.emoji;
@@ -870,7 +873,7 @@ document.querySelectorAll('#emotion-tags-row .tag').forEach(t=>{
 // ═══════════════════════════
 // MOOD TAB
 // ═══════════════════════════
-function renderMoodTab(){renderMoodLineChart();renderMoodPieChart();renderMoodHistory();}
+function renderMoodTab(){renderMoodLineChart();renderMoodPieChart();renderTodayTimeline();renderMoodHistory();}
 
 function renderMoodLineChart(){
   const c=$('mood-line-chart'); const ctx=c.getContext('2d'); if(c._chart)c._chart.destroy();
@@ -889,11 +892,34 @@ function renderMoodPieChart(){
   c._chart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:['#f0a5b5','#f5c1a1','#f5e2a9','#a3c6e8','#c7b3e5'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:D.dark?'#9a8b78':'#8b7b68',font:{size:11},padding:14}}}}});
 }
 
+function _fmtTime(iso){if(!iso)return'';const d=new Date(iso);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+function _todayEntries(){return D.moods.filter(m=>m.date===today()).sort((a,b)=>a.created.localeCompare(b.created));}
+function renderTodayTimeline(){
+  const div=$('today-timeline');
+  const entries=_todayEntries();
+  if(!entries.length){div.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">今天还没有心情记录 ☁️</div>';return;}
+  div.innerHTML=entries.map((m,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;${i<entries.length-1?'border-bottom:1px solid var(--surface);':''}">
+      <span style="font-size:22px;">${MOOD_EMOJI[m.value]}</span>
+      <span style="flex:1;font-size:12px;color:var(--text2);">${_fmtTime(m.created)}</span>
+      ${m.tags&&m.tags.length?`<span style="font-size:10px;color:var(--accent);display:flex;gap:3px;flex-wrap:wrap;">${m.tags.map(t=>`<span style="background:var(--surface);padding:2px 7px;border-radius:10px;">${t}</span>`).join('')}</span>`:''}
+    </div>
+  `).join('');
+}
 function renderMoodHistory(){
   const div=$('mood-history');
-  const recent=[...D.moods].sort((a,b)=>b.date.localeCompare(a.date)||b.created.localeCompare(a.created)).slice(0,20);
+  const recent=[...D.moods].sort((a,b)=>b.created.localeCompare(a.created)).slice(0,30);
   if(!recent.length){div.innerHTML='<div class="empty"><span class="big">🌈</span>还没有心情记录<br>去总览页点一下心情吧~</div>';return;}
-  div.innerHTML='<div class="card"><div class="card-title"><span class="icon">📋✨</span> 心情记录</div>'+recent.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--surface);"><span style="font-size:26px;">${MOOD_EMOJI[m.value]}</span><span style="flex:1;font-size:12px;">${timeFmt(m.created)}</span><span style="font-size:11px;color:var(--text2);">${MOOD_LABEL[m.value]}</span></div>`).join('')+'</div>';
+  div.innerHTML='<div class="card"><div class="card-title"><span class="icon">📋✨</span> 全部记录</div>'+recent.map(m=>{
+    const d=new Date(m.created);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--surface);">
+      <span style="font-size:24px;">${MOOD_EMOJI[m.value]}</span>
+      <span style="flex:1;min-width:0;"><span style="font-size:11px;color:var(--text3);">${dateStr}</span> <span style="font-size:11px;color:var(--text2);">${_fmtTime(m.created)}</span></span>
+      <span style="font-size:10px;color:var(--text2);white-space:nowrap;">${MOOD_LABEL[m.value]}</span>
+      ${m.tags&&m.tags.length?`<span style="font-size:9px;color:var(--accent);display:flex;gap:2px;flex-wrap:wrap;max-width:120px;">${m.tags.map(t=>`<span style="background:var(--surface);padding:1px 6px;border-radius:9px;white-space:nowrap;">${t}</span>`).join('')}</span>`:''}
+    </div>`;
+  }).join('')+'</div>';
 }
 
 // ═══════════════════════════
